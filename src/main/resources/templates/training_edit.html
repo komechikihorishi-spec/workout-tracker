@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html xmlns:th="http://thymeleaf.org">
+<head>
+    <meta charset="UTF-8"><title>記録の編集</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style> .input-header { font-size: 0.75rem; color: #6c757d; font-weight: bold; text-align: center; margin-bottom: 2px; } </style>
+</head>
+<body class="bg-light p-4">
+<div class="container bg-white shadow rounded p-4">
+    <h2>✏️ 記録の編集</h2>
+    <div class="card mt-3 training-card" th:data-log-id="${trainingLog.id}">
+        <div class="card-body">
+            
+            <div class="row g-2 mb-3">
+                <div class="col-12">
+                    <div class="input-header text-start">トレーニング日時</div>
+                    <input type="datetime-local" class="form-control form-control-sm created-at autosave" 
+                           th:value="${trainingLog.createdAt != null ? #temporals.format(trainingLog.createdAt, 'yyyy-MM-dd') + 'T' + #temporals.format(trainingLog.createdAt, 'HH:mm') : ''}">
+                </div>
+            </div>
+
+            <div class="row g-2 input-header">
+                <div class="col-4 text-start">部位</div><div class="col-5 text-start">種目名</div><div class="col-3 text-start">時間(分)</div>
+            </div>
+            <div class="row g-2 mb-3">
+                <div class="col-4"><select class="form-select form-select-sm cat-sel autosave">
+                    <option value="">部位...</option>
+                    <option th:each="c : ${ {'胸','背中','肩','腕','脚','腹'} }" th:text="${c}" th:selected="${trainingLog.category == c}"></option>
+                </select></div>
+                <div class="col-5"><input type="text" class="form-control form-control-sm ex-name autosave" th:value="${trainingLog.exercise}"></div>
+                <div class="col-3"><input type="number" class="form-control form-control-sm dur-in autosave" th:value="${trainingLog.durationMinutes}"></div>
+            </div>
+            
+            <div class="row g-1 mb-1 input-header">
+                <div class="col-1">#</div><div class="col-4">重量(kg)</div><div class="col-3">回数</div><div class="col-3">補助</div>
+            </div>
+            <div class="set-list">
+                <div th:each="s : ${trainingLog.sets}" class="row g-1 mb-1 s-row">
+                    <div class="col-1 text-center pt-1 small" th:text="${s.number}"></div>
+                    <div class="col-4"><input type="number" step="0.1" class="form-control form-control-sm w-in autosave" th:value="${s.weight}"></div>
+                    <div class="col-3"><input type="number" class="form-control form-control-sm r-in autosave" th:value="${s.reps}"></div>
+                    <div class="col-3"><input type="number" class="form-control form-control-sm a-in autosave" th:value="${s.assistReps}"></div>
+                </div>
+            </div>
+            <button class="btn btn-link btn-sm text-secondary p-0 mt-2" th:onclick="'addSet(' + ${trainingLog.id} + ')'">＋ セット追加</button>
+            <textarea class="form-control form-control-sm mt-3 memo-in autosave" th:text="${trainingLog.memo}" placeholder="種目のメモ..."></textarea>
+            
+            <div class="mt-4">
+                <a th:href="@{/training(date=${trainingLog.createdAt != null ? #temporals.format(trainingLog.createdAt, 'yyyy-MM-dd') : ''})}" class="btn btn-primary px-4" id="back-btn">戻る</a>
+                <span class="text-success ms-3" id="save-msg" style="display:none;">✔ 保存されました</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('focusout', function(e) {
+    if (e.target.classList.contains('autosave')) { saveCard(e.target.closest('.training-card')); }
+    if (e.target.classList.contains('created-at')) {
+        const newDate = e.target.value.split('T')[0];
+        const backBtn = document.getElementById('back-btn');
+        if (backBtn && newDate) { backBtn.href = `/training?date=${newDate}`; }
+    }
+});
+
+function saveCard(card) {
+    const id = card.getAttribute('data-log-id'); const sets = [];
+    card.querySelectorAll('.s-row').forEach((row, i) => {
+        const w = row.querySelector('.w-in').value;
+        sets.push({ number: i+1, weight: w === "" ? 0 : parseFloat(w), reps: row.querySelector('.r-in').value || 0, assistReps: row.querySelector('.a-in').value || 0 });
+    });
+    fetch('/training/api/autosave', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ id: id, exercise: card.querySelector('.ex-name').value, category: card.querySelector('.cat-sel').value, durationMinutes: card.querySelector('.dur-in').value, memo: card.querySelector('.memo-in').value, createdAt: card.querySelector('.created-at').value || null, sets: sets })
+    }).then(() => { const msg = document.getElementById('save-msg'); msg.style.display = 'inline'; setTimeout(() => msg.style.display = 'none', 2000); });
+}
+
+function addSet(logId) {
+    const list = document.querySelector(`.training-card[data-log-id="${logId}"] .set-list`); const n = list.querySelectorAll('.s-row').length + 1;
+    const div = document.createElement('div'); div.className = 'row g-1 mb-1 s-row';
+    div.innerHTML = `<div class="col-1 text-center pt-1 small">${n}</div>
+        <div class="col-4"><input type="number" step="0.1" class="form-control form-control-sm w-in autosave" value="0"></div>
+        <div class="col-3"><input type="number" class="form-control form-control-sm r-in autosave" value="0"></div>
+        <div class="col-3"><input type="number" class="form-control form-control-sm a-in autosave" value="0"></div>`;
+    list.appendChild(div);
+}
+</script>
+</body>
+</html>

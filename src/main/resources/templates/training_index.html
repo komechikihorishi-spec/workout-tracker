@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html xmlns:th="http://thymeleaf.org">
+<head>
+    <meta charset="UTF-8"><title>筋トレ記録</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .metrics-card { background: #2c3e50; color: white; border-radius: 12px; }
+        .training-card { border-left: 6px solid #3498db; }
+        .day-group { background: #f8f9fa; padding: 10px 15px; font-weight: bold; border-bottom: 2px solid #dee2e6; margin-top: 30px; color: #495057; }
+        .border-胸 { border-left-color: #ff5e5e !important; } .border-背中 { border-left-color: #f1c40f !important; }
+        .border-肩 { border-left-color: #3498db !important; } .border-腕 { border-left-color: #9b59b6 !important; }
+        .border-脚 { border-left-color: #2ecc71 !important; } .border-腹 { border-left-color: #e67e22 !important; }
+        .input-header { font-size: 0.75rem; color: #6c757d; font-weight: bold; text-align: center; margin-bottom: 2px; }
+        .timer-btn { font-size: 0.75rem; padding: 2px 8px; }
+    </style>
+</head>
+<body class="bg-light">
+<div class="container py-4">
+    <div class="card metrics-card shadow mb-4">
+        <div class="card-body row g-2">
+            <h6 class="col-12 fw-bold text-uppercase" th:text="'⚖️ ' + ${#temporals.format(targetDate, 'yyyy/MM/dd')} + ' のコンディション'"></h6>
+            <div class="col-4 col-md-2">体重<input type="number" step="0.1" id="m-weight" th:value="${metrics.weight}" class="form-control form-control-sm m-in"></div>
+            <div class="col-4 col-md-2">体脂肪<input type="number" step="0.1" id="m-fat" th:value="${metrics.bodyFat}" class="form-control form-control-sm m-in"></div>
+            <div class="col-4 col-md-2">筋肉量<input type="number" step="0.1" id="m-muscle" th:value="${metrics.muscleMass}" class="form-control form-control-sm m-in"></div>
+            <div class="col-4 col-md-2">水分<input type="number" step="0.1" id="m-water" th:value="${metrics.water}" class="form-control form-control-sm m-in"></div>
+            <div class="col-4 col-md-2">BMI<input type="number" step="0.1" id="m-bmi" th:value="${metrics.bmi}" class="form-control form-control-sm m-in"></div>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="m-0" th:text="${targetDate.equals(T(java.time.LocalDate).now()) ? '📅 今日の記録' : '📅 ' + #temporals.format(targetDate, 'yyyy/MM/dd') + ' の記録'}"></h2>
+        <div class="d-flex gap-2">
+            <a th:href="@{/training/calendar}" class="btn btn-outline-dark btn-sm">カレンダー</a>
+            <a th:href="@{/training/graph}" class="btn btn-outline-info btn-sm">📈 グラフ</a>
+            <a th:href="@{/training/add-empty(date=${targetDate})}" class="btn btn-primary btn-sm">＋ 種目追加</a>
+        </div>
+    </div>
+
+    <div th:each="log : ${todayLogs}" class="card mb-3 shadow-sm training-card" th:data-log-id="${log.id}">
+        <div class="card-body">
+            <div class="row g-2 input-header">
+                <div class="col-4 text-start">部位</div><div class="col-5 text-start">種目名</div><div class="col-3 text-start">時間(分)</div>
+            </div>
+            <div class="row g-2 mb-3">
+                <div class="col-4"><select class="form-select form-select-sm cat-sel autosave">
+                    <option value="">選択...</option>
+                    <option th:each="c : ${ {'胸','背中','肩','腕','脚','腹'} }" th:text="${c}" th:selected="${log.category == c}"></option>
+                </select></div>
+                <div class="col-5"><input type="text" class="form-control form-control-sm ex-name autosave" th:value="${log.exercise}"></div>
+                <div class="col-3"><input type="number" class="form-control form-control-sm dur-in autosave" th:value="${log.durationMinutes}"></div>
+            </div>
+
+            <div class="mb-3 d-flex align-items-center gap-2 border rounded p-2 bg-light">
+                <small class="text-muted fw-bold">⏱ Rest:</small>
+                <button class="btn btn-sm btn-outline-secondary timer-btn" onclick="startTimer(60, this)">60s</button>
+                <button class="btn btn-sm btn-outline-secondary timer-btn" onclick="startTimer(120, this)">120s</button>
+                <span class="timer-display fw-bold text-danger ms-2"></span>
+            </div>
+
+            <div class="row g-1 input-header">
+                <div class="col-1">#</div><div class="col-4">重量(kg)</div><div class="col-3">回数</div><div class="col-3">補助</div>
+            </div>
+            <div class="set-list">
+                <div th:each="s : ${log.sets}" class="row g-1 mb-1 s-row">
+                    <div class="col-1 text-center pt-1 small" th:text="${s.number}"></div>
+                    <div class="col-4"><input type="number" step="0.1" class="form-control form-control-sm w-in autosave" th:value="${s.weight}"></div>
+                    <div class="col-3"><input type="number" class="form-control form-control-sm r-in autosave" th:value="${s.reps}"></div>
+                    <div class="col-3"><input type="number" class="form-control form-control-sm a-in autosave" th:value="${s.assistReps}"></div>
+                </div>
+            </div>
+            <button class="btn btn-link btn-sm text-secondary p-0 mt-2" th:onclick="'addSet(' + ${log.id} + ')'">＋ セット追加</button>
+            <textarea class="form-control form-control-sm mt-3 memo-in autosave" th:text="${log.memo}" placeholder="種目のメモ..."></textarea>
+            
+            <div class="d-flex justify-content-between mt-3 pt-3 border-top">
+                <form th:action="@{/training/complete/{id}(id=${log.id}, date=${targetDate})}" method="post"><button class="btn btn-success btn-sm px-4">完了</button></form>
+                <form th:action="@{/training/delete/{id}(id=${log.id}, date=${targetDate})}" method="post"><button class="btn btn-link text-danger btn-sm">削除</button></form>
+            </div>
+        </div>
+    </div>
+
+    <h4 class="mt-5 mb-2 text-muted">📜 履歴</h4>
+    <div class="list-group shadow-sm">
+        <div th:each="log, stat : ${logs}">
+            <div th:if="${stat.first || !log.createdAt.toLocalDate().equals(logs[stat.index - 1].createdAt.toLocalDate())}" 
+                 class="day-group" th:text="${#temporals.format(log.createdAt, 'yyyy/MM/dd')}"></div>
+            <div class="list-group-item d-flex justify-content-between align-items-center border-start border-4" th:classappend="'border-' + ${log.category}">
+                <div>
+                    <span class="badge bg-secondary me-1" th:text="${log.category}"></span>
+                    <strong th:text="${log.exercise}"></strong>
+                    <div class="small mt-1 text-muted">
+                        <span th:each="s : ${log.sets}" class="me-2 text-dark">
+                            <span th:text="${s.weight} + 'kg × ' + ${s.reps} + '回'"></span>
+                            <span th:if="${s.assistReps != null && s.assistReps > 0}" th:text="'(' + ${s.assistReps} + ')'" class="text-primary fw-bold"></span>
+                        </span>
+                    </div>
+                </div>
+                <div class="d-flex gap-2">
+                    <a th:href="@{/training/edit/{id}(id=${log.id})}" class="btn btn-sm btn-outline-primary">編集</a>
+                    <form th:action="@{/training/delete/{id}(id=${log.id}, date=${targetDate})}" method="post" onsubmit="return confirm('削除しますか？');">
+                        <button class="btn btn-sm btn-outline-danger">消去</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script th:inline="javascript">
+const currentTargetDate = [[${targetDate.toString()}]];
+document.addEventListener('focusout', function(e) {
+    if (e.target.classList.contains('autosave')) { saveCard(e.target.closest('.training-card')); }
+    if (e.target.classList.contains('m-in')) { saveM(); }
+});
+function saveCard(card) {
+    if (!card) return;
+    const id = card.getAttribute('data-log-id'); const sets = [];
+    card.querySelectorAll('.s-row').forEach((row, i) => {
+        const w = row.querySelector('.w-in').value;
+        sets.push({ number: i+1, weight: w === "" ? 0 : parseFloat(w), reps: row.querySelector('.r-in').value || 0, assistReps: row.querySelector('.a-in').value || 0 });
+    });
+    fetch('/training/api/autosave', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ id: id, exercise: card.querySelector('.ex-name').value, category: card.querySelector('.cat-sel').value, durationMinutes: card.querySelector('.dur-in').value, memo: card.querySelector('.memo-in').value, sets: sets })
+    });
+}
+function saveM() {
+    const p = { date: currentTargetDate, weight: document.getElementById('m-weight').value || 0, bodyFat: document.getElementById('m-fat').value || 0, muscleMass: document.getElementById('m-muscle').value || 0, water: document.getElementById('m-water').value || 0, bmi: document.getElementById('m-bmi').value || 0 };
+    fetch('/training/api/metrics', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(p)});
+}
+function addSet(logId) {
+    const list = document.querySelector(`.training-card[data-log-id="${logId}"] .set-list`);
+    const n = list.querySelectorAll('.s-row').length + 1;
+    const div = document.createElement('div'); div.className = 'row g-1 mb-1 s-row';
+    div.innerHTML = `<div class="col-1 text-center pt-1 small">${n}</div>
+        <div class="col-4"><input type="number" step="0.1" class="form-control form-control-sm w-in autosave" value="0"></div>
+        <div class="col-3"><input type="number" class="form-control form-control-sm r-in autosave" value="0"></div>
+        <div class="col-3"><input type="number" class="form-control form-control-sm a-in autosave" value="0"></div>`;
+    list.appendChild(div);
+}
+let t;
+function startTimer(sec, btn) {
+    clearInterval(t); let l = sec; const d = btn.parentElement.querySelector('.timer-display');
+    t = setInterval(() => { d.textContent = `${Math.floor(l / 60)}:${(l % 60).toString().padStart(2, '0')}`; if (l-- <= 0) { clearInterval(t); d.textContent = "Time Up!"; alert("休憩終了！"); } }, 1000);
+}
+</script>
+</body>
+</html>
